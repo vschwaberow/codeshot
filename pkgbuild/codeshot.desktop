@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Codeshot
+Comment=Turn code into a shareable image
+Comment[de]=Code in ein teilbares Bild verwandeln
+Exec=codeshot %f
+Icon=codeshot
+Terminal=false
+Categories=Utility;
+StartupWMClass=codeshot

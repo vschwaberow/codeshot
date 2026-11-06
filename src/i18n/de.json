@@ -1,0 +1,21 @@
+{
+  "Window frame": "Fensterrahmen",
+  "Copy": "Kopieren",
+  "Save PNG": "PNG speichern",
+  "Type or paste code": "Code eingeben oder einfügen",
+  "Press ? for shortcuts": "? zeigt die Tastenkürzel",
+  "Shortcuts": "Tastenkürzel",
+  "Leave the editor": "Editor verlassen",
+  "Focus the editor": "Editor fokussieren",
+  "Copy image": "Bild kopieren",
+  "Next language": "Nächste Sprache",
+  "Toggle window frame": "Fensterrahmen umschalten",
+  "Show shortcuts": "Tastenkürzel anzeigen",
+  "Quit": "Beenden",
+  "Could not save the image": "Das Bild konnte nicht gespeichert werden",
+  "Saved %1": "Gespeichert: %1",
+  "Copied to the clipboard": "In die Zwischenablage kopiert",
+  "Could not copy the image": "Das Bild konnte nicht kopiert werden",
+  "wl-copy is missing, install wl-clipboard to copy images": "wl-copy fehlt, installiere wl-clipboard zum Kopieren von Bildern",
+  "Could not open %1": "%1 konnte nicht geöffnet werden"
+}
