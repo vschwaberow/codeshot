@@ -282,6 +282,13 @@ void paintAmiga3(QPainter &p, const QRectF &card, const QRectF &band, const QStr
 } // namespace
 
 Backend::Backend(QObject *parent) : QObject(parent) {
+    m_previewTimer.setSingleShot(true);
+    m_previewTimer.setInterval(120);
+    connect(&m_previewTimer, &QTimer::timeout, this, [this] {
+        ++m_revision;
+        refreshPreview();
+        emit changed();
+    });
     refreshPreview();
 }
 
@@ -554,7 +561,9 @@ void Backend::openFile(const QString &path) {
     m_title = name.isEmpty() ? "codeshot" : name;
     m_code = text;
     // Always bump: resetting the language alone can change the render,
-    // even when the reopened text is identical.
+    // even when the reopened text is identical. Opening is a discrete
+    // action, so refresh now instead of via the typing timer.
+    m_previewTimer.stop();
     ++m_revision;
     refreshPreview();
     emit changed();

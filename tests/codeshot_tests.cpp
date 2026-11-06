@@ -204,11 +204,19 @@ private slots:
         const int revision = backend.revision();
         backend.setFrame(backend.frame());
         backend.setLanguage(backend.language());
+        QTest::qWait(200);
         QCOMPARE(backend.revision(), revision);
         backend.setFrame("Windows");
-        QCOMPARE(backend.revision(), revision + 1);
+        QVERIFY(QTest::qWaitFor([&] { return backend.revision() == revision + 1; }, 2000));
         backend.setCode("x");
-        QCOMPARE(backend.revision(), revision + 2);
+        QVERIFY(QTest::qWaitFor([&] { return backend.revision() == revision + 2; }, 2000));
+    }
+
+    void previewCacheFollowsChanges()
+    {
+        Backend backend;
+        backend.setCode("int cached = 42;\n");
+        QVERIFY(QTest::qWaitFor([&] { return backend.previewImage() == backend.render(2); }, 2000));
     }
 
     void unknownFrameFallsBackToOmarchy()

@@ -6,6 +6,7 @@
 #include <QPointer>
 #include <QQuickImageProvider>
 #include <QStringList>
+#include <QTimer>
 #include <utility>
 
 // Renders code to an image. The same function paints the preview and the
@@ -65,16 +66,17 @@ private:
     void refreshPreview();
 
     // Every property that reaches the render follows the same rule: ignore
-    // no-ops, otherwise store, bump the revision so the preview reloads,
-    // re-render the cached preview, and notify. (A plain member template,
-    // not a slot, so moc is fine.)
+    // no-ops, otherwise store and notify at once. The revision bump and
+    // re-render follow via the preview timer, coalesced so that typing in
+    // a large file does not re-render on every keystroke; saving and
+    // copying always render fresh, so exports never lag behind.
+    // (A plain member template, not a slot, so moc is fine.)
     template <typename T>
     void setField(T &field, T value) {
         if (field == value)
             return;
         field = std::move(value);
-        ++m_revision;
-        refreshPreview();
+        m_previewTimer.start();
         emit changed();
     }
 
@@ -84,6 +86,7 @@ private:
     QString m_accent = "#FFD60A";
     QString m_title = "codeshot";
     int m_revision = 0;
+    QTimer m_previewTimer;
     QImage m_cachedPreview;
     mutable QMutex m_cacheMutex;
     QString m_status;
