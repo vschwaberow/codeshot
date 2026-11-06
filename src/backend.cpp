@@ -506,8 +506,13 @@ void Backend::openFile(const QString &path) {
         return;
     }
     const QString text = QString::fromUtf8(file.readAll());
+    const QString name = QFileInfo(path).fileName();
     m_language = "Auto";
-    m_title = QFileInfo(path).fileName().isEmpty() ? "codeshot" : QFileInfo(path).fileName();
-    setCode(text);
+    m_title = name.isEmpty() ? "codeshot" : name;
+    m_code = text;
+    // Always bump: resetting the language alone can change the render,
+    // even when the reopened text is identical.
+    ++m_revision;
+    refreshPreview();
     emit changed();
 }

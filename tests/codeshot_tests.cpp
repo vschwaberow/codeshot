@@ -77,6 +77,23 @@ private slots:
         QVERIFY(macHeight > noneHeight);
     }
 
+    void reopeningBumpsRevision()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("a.py");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("print('hi')\n");
+        file.close();
+        Backend backend;
+        backend.openFile(path);
+        backend.setLanguage("Rust");
+        const int revision = backend.revision();
+        backend.openFile(path);
+        QCOMPARE(backend.language(), QString("Auto"));
+        QVERIFY(backend.revision() > revision);
+    }
+
     void settersSkipNoOps()
     {
         Backend backend;
