@@ -16,5 +16,6 @@
   "Copied to the clipboard": "In die Zwischenablage kopiert",
   "Could not copy the image": "Das Bild konnte nicht kopiert werden",
   "wl-copy is missing, install wl-clipboard to copy images": "wl-copy fehlt, installiere wl-clipboard zum Kopieren von Bildern",
-  "Could not open %1": "%1 konnte nicht geöffnet werden"
+  "Could not open %1": "%1 konnte nicht geöffnet werden",
+  "%1 is too large": "%1 ist zu groß"
 }

@@ -401,14 +401,23 @@ QImage Backend::render(int scale) const {
 
     const FrameSpec *spec = findFrame(m_frame);
     const double pad = 40, inner = 24, chrome = spec->chrome, radius = spec->radius;
+    // No side of the image may grow without bound: wrap overlong lines at
+    // the cap, then lower the scale until both sides fit. Normal shots are
+    // far below this and render exactly as before; the editor text itself
+    // is never touched.
+    constexpr double kMaxSide = 8192;
+    if (doc.idealWidth() + (pad + inner) * 2 > kMaxSide)
+        doc.setTextWidth(kMaxSide - (pad + inner) * 2);
     const QSizeF textSize(qMax(doc.idealWidth(), 240.0), doc.size().height());
     const QSizeF card(textSize.width() + inner * 2, textSize.height() + inner * 2 + chrome);
-    const QSize full(qCeil(card.width() + pad * 2), qCeil(card.height() + pad * 2));
+    const QSizeF fullF(card.width() + pad * 2, card.height() + pad * 2);
+    const QSize full(qCeil(fullF.width()), qCeil(fullF.height()));
+    const double effScale = std::min({double(scale), kMaxSide / fullF.width(), kMaxSide / fullF.height()});
 
-    QImage image(full * scale, QImage::Format_ARGB32_Premultiplied);
+    QImage image(QSize(qCeil(fullF.width() * effScale), qCeil(fullF.height() * effScale)), QImage::Format_ARGB32_Premultiplied);
     QPainter p(&image);
     p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
-    p.scale(scale, scale);
+    p.scale(effScale, effScale);
 
     QLinearGradient bg(0, 0, full.width(), full.height());
     bg.setColorAt(0, "#7c5cff");
@@ -503,6 +512,13 @@ void Backend::openFile(const QString &path) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         setStatus(tr("Could not open %1").arg(path), true);
+        return;
+    }
+    // Code snippets are small; refuse anything bigger instead of reading
+    // it all into the editor and the renderer.
+    constexpr qint64 kMaxFileBytes = 5 * 1024 * 1024;
+    if (file.size() > kMaxFileBytes) {
+        setStatus(tr("%1 is too large").arg(path), true);
         return;
     }
     const QString text = QString::fromUtf8(file.readAll());

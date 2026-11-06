@@ -77,6 +77,30 @@ private slots:
         QVERIFY(macHeight > noneHeight);
     }
 
+    void renderSizeIsCapped()
+    {
+        Backend backend;
+        backend.setCode(QString(5000, 'x') + "\n");
+        const QImage image = backend.render(2);
+        QVERIFY(!image.isNull());
+        QVERIFY(image.width() <= 8192);
+        QVERIFY(image.height() <= 8192);
+    }
+
+    void oversizedFileIsRejected()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("big.txt");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.resize(5 * 1024 * 1024 + 1));
+        file.close();
+        Backend backend;
+        backend.openFile(path);
+        QVERIFY(backend.statusIsError());
+        QVERIFY(backend.code().isEmpty());
+    }
+
     void reopeningBumpsRevision()
     {
         QTemporaryDir dir;
