@@ -60,6 +60,12 @@ private slots:
         QTemporaryDir dir;
         Theme theme(dir.path());
         QCOMPARE(theme.accent(), QString("#FFD60A"));
+        QCOMPARE(theme.window(), QString("#101012"));
+        QCOMPARE(theme.surface(), QString("#17171a"));
+        QCOMPARE(theme.border(), QString("#2a2a2e"));
+        QCOMPARE(theme.mutedText(), QString("#9a9aa3"));
+        QCOMPARE(theme.error(), QString("#ff6b6b"));
+        QCOMPARE(theme.scrim(), QString("#b3000000"));
     }
 
     void translatorFallsBackToEnglish()
