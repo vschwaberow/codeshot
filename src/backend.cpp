@@ -16,6 +16,7 @@
 #include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTextDocument>
+#include <QTimer>
 #include <QtMath>
 #include <algorithm>
 #include <array>
@@ -489,8 +490,10 @@ void Backend::copyImage() {
     }
     QByteArray png;
     QBuffer buffer(&png);
-    buffer.open(QIODevice::WriteOnly);
-    render(2).save(&buffer, "PNG");
+    if (!buffer.open(QIODevice::WriteOnly) || !render(2).save(&buffer, "PNG")) {
+        setStatus(tr("Could not copy the image"), true);
+        return;
+    }
     // Owned by the unique_ptr until the process is running; then ownership
     // passes to the QObject tree, which deletes it when it finishes. If it
     // never starts, the unique_ptr cleans up on return.
@@ -500,12 +503,26 @@ void Backend::copyImage() {
         setStatus(tr("Could not copy the image"), true);
         return;
     }
-    process->write(png);
+    if (process->write(png) != png.size()) {
+        setStatus(tr("Could not copy the image"), true);
+        return;
+    }
     process->closeWriteChannel();
     auto *released = process.release();
     released->setParent(this);
-    connect(released, &QProcess::finished, released, &QObject::deleteLater);
-    setStatus(tr("Copied to the clipboard"));
+    // Success is only real once wl-copy exits cleanly; a hang is killed and
+    // reported like any other failure.
+    connect(released, &QProcess::finished, this, [this, released](int exitCode, QProcess::ExitStatus status) {
+        if (status == QProcess::NormalExit && exitCode == 0)
+            setStatus(tr("Copied to the clipboard"));
+        else
+            setStatus(tr("Could not copy the image"), true);
+        released->deleteLater();
+    });
+    QTimer::singleShot(5000, released, [released] {
+        if (released->state() != QProcess::NotRunning)
+            released->kill();
+    });
 }
 
 void Backend::openFile(const QString &path) {

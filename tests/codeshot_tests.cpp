@@ -87,6 +87,37 @@ private slots:
         QVERIFY(image.height() <= 8192);
     }
 
+    void copyReportsWlCopyFailure()
+    {
+        QTemporaryDir dir;
+        const QString script = dir.filePath("wl-copy");
+        QFile file(script);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("#!/bin/sh\ncat >/dev/null\nexit 3\n");
+        file.close();
+        QVERIFY(file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+        const QByteArray oldPath = qgetenv("PATH");
+        qputenv("PATH", dir.path().toUtf8() + ":/usr/bin:/bin");
+        Backend backend;
+        backend.setCode("int main() {}");
+        backend.copyImage();
+        const bool reported = QTest::qWaitFor([&] { return backend.statusIsError(); }, 3000);
+        qputenv("PATH", oldPath);
+        QVERIFY(reported);
+    }
+
+    void copyReportsMissingWlCopy()
+    {
+        QTemporaryDir dir;
+        const QByteArray oldPath = qgetenv("PATH");
+        qputenv("PATH", dir.path().toUtf8());
+        Backend backend;
+        backend.copyImage();
+        const bool error = backend.statusIsError();
+        qputenv("PATH", oldPath);
+        QVERIFY(error);
+    }
+
     void oversizedFileIsRejected()
     {
         QTemporaryDir dir;
