@@ -55,6 +55,28 @@ private slots:
         QVERIFY(QFile::exists(path));
     }
 
+    void rendersAllFrames()
+    {
+        Backend backend;
+        backend.setCode("int main() { return 0; }");
+        QCOMPARE(backend.frame(), QString("Omarchy"));
+        QCOMPARE(backend.frames(),
+                 QStringList({"Omarchy", "Windows", "macOS", "Atari TOS", "Amiga OS 1.3", "Amiga OS 3.x", "None"}));
+        int noneHeight = 0, macHeight = 0;
+        for (const QString &frame : backend.frames()) {
+            backend.setFrame(frame);
+            const QImage image = backend.render(2);
+            QVERIFY(!image.isNull());
+            QVERIFY(image.width() > 200);
+            if (frame == "None")
+                noneHeight = image.height();
+            if (frame == "macOS")
+                macHeight = image.height();
+        }
+        // A title bar makes the card taller than no frame at all.
+        QVERIFY(macHeight > noneHeight);
+    }
+
     void themeFallsBack()
     {
         QTemporaryDir dir;

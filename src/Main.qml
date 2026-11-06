@@ -26,6 +26,9 @@ ApplicationWindow {
 
     readonly property bool typing: editor.activeFocus
 
+    // The rendered Omarchy frame uses the same live accent as the window.
+    Binding { target: backend; property: "accent"; value: theme.accent }
+
     // Single letters only fire while the editor does not have focus, so they
     // never eat typed characters. Escape leaves the editor.
     Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; onActivated: { helpPopup.close(); root.forceActiveFocus() } }
@@ -38,8 +41,11 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+S"; context: Qt.ApplicationShortcut; onActivated: backend.saveImage() }
     Shortcut { sequence: "Ctrl+L"; context: Qt.ApplicationShortcut; onActivated: editor.forceActiveFocus() }
     Shortcut { sequence: "L"; enabled: !win.typing; context: Qt.ApplicationShortcut
-        onActivated: langBox.currentIndex = (langBox.currentIndex + 1) % langBox.count }
-    Shortcut { sequence: "W"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: backend.windowChrome = !backend.windowChrome }
+        // Setting currentIndex does not emit activated, so cycle the backend
+        // value; the combo box follows through its binding.
+        onActivated: backend.language = backend.languages[(backend.languages.indexOf(backend.language) + 1) % backend.languages.length] }
+    Shortcut { sequence: "W"; enabled: !win.typing; context: Qt.ApplicationShortcut
+        onActivated: backend.frame = backend.frames[(backend.frames.indexOf(backend.frame) + 1) % backend.frames.length] }
 
     Item {
         id: root
@@ -69,10 +75,12 @@ ApplicationWindow {
                         onActivated: backend.language = currentText
                         Layout.preferredWidth: 160
                     }
-                    Switch {
-                        text: qsTr("Window frame")
-                        checked: backend.windowChrome
-                        onToggled: backend.windowChrome = checked
+                    ComboBox {
+                        id: frameBox
+                        model: backend.frames
+                        currentIndex: Math.max(0, backend.frames.indexOf(backend.frame))
+                        onActivated: backend.frame = currentText
+                        Layout.preferredWidth: 150
                     }
                     Item { Layout.fillWidth: true }
                     Button {
@@ -212,7 +220,7 @@ ApplicationWindow {
                         ["Space / Ctrl+Shift+C", qsTr("Copy image")],
                         ["Ctrl+S", qsTr("Save PNG")],
                         ["L", qsTr("Next language")],
-                        ["W", qsTr("Toggle window frame")],
+                        ["W", qsTr("Next window frame")],
                         ["?", qsTr("Show shortcuts")],
                         ["Q / Ctrl+Q", qsTr("Quit")]
                     ]

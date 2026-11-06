@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
@@ -61,6 +62,180 @@ const Lang *findLang(const QString &name) {
 
 QString escape(const QString &s) { return s.toHtmlEscaped(); }
 
+// Title-bar height and corner radius per window frame. The retro frames have
+// square corners; Omarchy and None keep the plain rounded card.
+double frameChrome(const QString &frame) {
+    if (frame == "Windows") return 36;
+    if (frame == "macOS") return 34;
+    if (frame == "Atari TOS" || frame.startsWith("Amiga")) return 24;
+    return 0;
+}
+
+double frameRadius(const QString &frame) {
+    if (frame == "Windows") return 8;
+    if (frame == "Atari TOS" || frame.startsWith("Amiga")) return 0;
+    return 12;
+}
+
+QFont titleFont(int pixelSize) {
+    QFont font("sans-serif");
+    font.setPixelSize(pixelSize);
+    return font;
+}
+
+void drawTitle(QPainter &p, const QRectF &rect, const QString &title, const QColor &color, int alignment, int pixelSize) {
+    p.setFont(titleFont(pixelSize));
+    p.setPen(color);
+    const QString text = QFontMetrics(p.font()).elidedText(title, Qt::ElideRight, int(rect.width()));
+    p.drawText(rect, alignment | Qt::AlignVCenter, text);
+}
+
+// The paired black/white line that separates Amiga title-bar gadgets.
+void gadgetSeparator(QPainter &p, double x, const QRectF &band) {
+    p.setPen(QPen(Qt::black, 1));
+    p.drawLine(QPointF(x, band.top()), QPointF(x, band.bottom()));
+    p.setPen(QPen(Qt::white, 1));
+    p.drawLine(QPointF(x + 1.5, band.top()), QPointF(x + 1.5, band.bottom()));
+}
+
+void paintFrame(QPainter &p, const QRectF &card, const QString &frame, const QString &title, const QColor &accent) {
+    const QRectF band(card.x(), card.y(), card.width(), frameChrome(frame));
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    if (frame == "Omarchy") {
+        // Hyprland draws no title bar, just the accent border.
+        p.setPen(QPen(accent, 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(card.adjusted(1, 1, -1, -1), 11, 11);
+    } else if (frame == "macOS") {
+        drawTitle(p, band, title, "#8e8ea3", Qt::AlignCenter, 12);
+        const char *dots[] = {"#ff5f57", "#febc2e", "#28c840"};
+        p.setPen(Qt::NoPen);
+        for (int i = 0; i < 3; ++i) {
+            p.setBrush(QColor(dots[i]));
+            p.drawEllipse(QPointF(card.x() + 22 + i * 20, card.y() + 20), 6, 6);
+        }
+    } else if (frame == "Windows") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#2c2c30"));
+        p.drawRect(band);
+        const double buttonW = 46, buttonsX = card.right() - buttonW * 3;
+        p.setBrush(QColor("#e81123"));
+        p.drawRect(QRectF(card.right() - buttonW, card.y(), buttonW, band.height()));
+        drawTitle(p, QRectF(card.x() + 14, card.y(), buttonsX - card.x() - 22, band.height()), title, "#eaeaea", Qt::AlignLeft, 12);
+        p.setPen(QPen(QColor("#eaeaea"), 1.3));
+        const double cy = card.y() + band.height() / 2;
+        const double minCx = buttonsX + buttonW / 2, maxCx = minCx + buttonW, closeCx = maxCx + buttonW;
+        p.drawLine(QPointF(minCx - 5, cy), QPointF(minCx + 5, cy));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(maxCx - 4.5, cy - 4.5, 9, 9));
+        p.drawLine(QPointF(closeCx - 5, cy - 5), QPointF(closeCx + 5, cy + 5));
+        p.drawLine(QPointF(closeCx - 5, cy + 5), QPointF(closeCx + 5, cy - 5));
+    } else if (frame == "Atari TOS") {
+        // GEM: white drag bar, striped fill, a box at each end.
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#ffffff"));
+        p.drawRect(band);
+        const QRectF closeBox(card.x() + 7, card.y() + 6, 12, 12);
+        const QRectF fullBox(card.right() - 19, card.y() + 6, 12, 12);
+        p.setFont(titleFont(12));
+        const int titleW = QFontMetrics(p.font()).horizontalAdvance(title);
+        const double titleLeft = card.center().x() - titleW / 2.0, titleRight = titleLeft + titleW;
+        p.setPen(QPen(Qt::black, 1));
+        for (double y = card.y() + 4; y < band.bottom() - 3; y += 2) {
+            p.drawLine(QPointF(closeBox.right() + 6, y), QPointF(titleLeft - 8, y));
+            p.drawLine(QPointF(titleRight + 8, y), QPointF(fullBox.left() - 6, y));
+        }
+        p.setBrush(QColor("#ffffff"));
+        p.drawRect(closeBox);
+        p.drawRect(fullBox);
+        p.drawRect(QRectF(fullBox.x() + 2, fullBox.y() + 2, 5, 5));
+        p.drawLine(QPointF(card.x(), band.bottom()), QPointF(card.right(), band.bottom()));
+        drawTitle(p, band, title, Qt::black, Qt::AlignCenter, 12);
+    } else if (frame == "Amiga OS 1.3") {
+        // Workbench 1.3: white drag bar, blue title, white window border
+        // with a black line inside it. The close gadget is a blue-outlined
+        // box with a black square inside; the depth gadget is a black and a
+        // white square overlapping.
+        const QColor blue("#0055aa");
+        p.setPen(Qt::NoPen);
+        p.setBrush(Qt::white);
+        p.drawRect(band);
+        const QRectF closeBox(card.x() + 6, card.y() + 6, 12, 12);
+        const QRectF back(card.right() - 29, card.y() + 5, 11, 10), front(card.right() - 21, card.y() + 8, 11, 10);
+        p.setPen(QPen(blue, 1));
+        p.drawLine(QPointF(closeBox.right() + 5, card.y()), QPointF(closeBox.right() + 5, band.bottom()));
+        p.drawLine(QPointF(back.left() - 6, card.y()), QPointF(back.left() - 6, band.bottom()));
+        drawTitle(p, QRectF(closeBox.right() + 11, card.y(), back.left() - closeBox.right() - 22, band.height()), title, blue, Qt::AlignLeft, 12);
+        p.setPen(QPen(blue, 1.5));
+        p.setBrush(Qt::white);
+        p.drawRect(closeBox);
+        p.setPen(Qt::NoPen);
+        p.setBrush(Qt::black);
+        p.drawRect(QRectF(closeBox.center().x() - 2, closeBox.center().y() - 2, 4, 4));
+        p.setPen(QPen(blue, 1.2));
+        p.setBrush(Qt::black);
+        p.drawRect(back);
+        p.setBrush(Qt::white);
+        p.drawRect(front);
+        p.setPen(QPen(Qt::black, 1));
+        p.drawLine(QPointF(card.x(), band.bottom() - 0.5), QPointF(card.right(), band.bottom() - 0.5));
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(Qt::white, 2));
+        p.drawRect(card.adjusted(1, 1, -1, -1));
+        p.setPen(QPen(Qt::black, 1));
+        p.drawRect(card.adjusted(3.5, 3.5, -3.5, -3.5));
+    } else if (frame == "Amiga OS 3.x") {
+        // The active window: orange fill bar and borders, black title, and
+        // flat gadget imagery in separated cells — close on the left, then
+        // zoom and depth (rightmost) on the right.
+        const QColor orange("#ff8800"), grey("#aaaaaa");
+        p.setPen(Qt::NoPen);
+        p.setBrush(orange);
+        p.drawRect(band);
+        const double cell = 24, gy = card.y() + 6;
+        const double closeX = card.x(), zoomX = card.right() - cell * 2, depthX = card.right() - cell;
+        gadgetSeparator(p, closeX + cell, band);
+        gadgetSeparator(p, zoomX, band);
+        gadgetSeparator(p, depthX, band);
+        // Close: a hollow box — thick black outline, white middle.
+        p.setPen(Qt::NoPen);
+        p.setBrush(Qt::black);
+        p.drawRect(QRectF(closeX + 7.5, gy, 9, 12));
+        p.setBrush(Qt::white);
+        p.drawRect(QRectF(closeX + 9.5, gy + 2, 5, 8));
+        // Zoom: an outlined square with a small white square top-left.
+        p.setPen(QPen(Qt::black, 1.4));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(zoomX + 6, gy + 1, 12, 11));
+        p.setPen(QPen(Qt::black, 1));
+        p.setBrush(Qt::white);
+        p.drawRect(QRectF(zoomX + 6, gy + 1, 5, 5));
+        // Depth: a grey square behind a white one.
+        p.setPen(QPen(Qt::black, 1.2));
+        p.setBrush(grey);
+        p.drawRect(QRectF(depthX + 3, gy, 10, 9));
+        p.setBrush(Qt::white);
+        p.drawRect(QRectF(depthX + 9, gy + 4, 10, 9));
+        p.setPen(QPen(Qt::white, 1));
+        p.drawLine(QPointF(card.x(), card.y() + 0.5), QPointF(card.right(), card.y() + 0.5));
+        p.setPen(QPen(Qt::black, 1));
+        p.drawLine(QPointF(card.x(), band.bottom() - 0.5), QPointF(card.right(), band.bottom() - 0.5));
+        drawTitle(p, QRectF(closeX + cell + 8, card.y(), zoomX - closeX - cell - 12, band.height()), title, Qt::black, Qt::AlignLeft, 12);
+        // Orange border inside a black outline, lit from the top-left.
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(orange, 3));
+        p.drawRect(card.adjusted(2.5, 2.5, -2.5, -2.5));
+        p.setPen(QPen(Qt::black, 1));
+        p.drawRect(card.adjusted(0.5, 0.5, -0.5, -0.5));
+        p.setPen(QPen(Qt::white, 1));
+        p.drawLine(QPointF(card.x() + 4.5, band.bottom()), QPointF(card.x() + 4.5, card.bottom() - 4));
+        p.setPen(QPen(Qt::black, 1));
+        p.drawLine(QPointF(card.right() - 4.5, band.bottom()), QPointF(card.right() - 4.5, card.bottom() - 4));
+        p.drawLine(QPointF(card.x() + 4, card.bottom() - 4.5), QPointF(card.right() - 4, card.bottom() - 4.5));
+    }
+}
+
 } // namespace
 
 QStringList Backend::languages() const {
@@ -86,10 +261,22 @@ void Backend::setLanguage(const QString &language) {
     emit changed();
 }
 
-void Backend::setWindowChrome(bool on) {
-    if (on == m_chrome)
+QStringList Backend::frames() const {
+    return {"Omarchy", "Windows", "macOS", "Atari TOS", "Amiga OS 1.3", "Amiga OS 3.x", "None"};
+}
+
+void Backend::setFrame(const QString &frame) {
+    if (frame == m_frame)
         return;
-    m_chrome = on;
+    m_frame = frame;
+    ++m_revision;
+    emit changed();
+}
+
+void Backend::setAccent(const QString &accent) {
+    if (accent == m_accent)
+        return;
+    m_accent = accent;
     ++m_revision;
     emit changed();
 }
@@ -178,7 +365,7 @@ QImage Backend::render(int scale) const {
     doc.setHtml("<pre style=\"color:#cdd6f4; margin:0\">" + highlight(text, m_language) + "</pre>");
     doc.setTextWidth(-1);
 
-    const double pad = 40, inner = 24, chrome = m_chrome ? 34 : 0;
+    const double pad = 40, inner = 24, chrome = frameChrome(m_frame), radius = frameRadius(m_frame);
     const QSizeF textSize(qMax(doc.idealWidth(), 240.0), doc.size().height());
     const QSizeF card(textSize.width() + inner * 2, textSize.height() + inner * 2 + chrome);
     const QSize full(qCeil(card.width() + pad * 2), qCeil(card.height() + pad * 2));
@@ -196,17 +383,17 @@ QImage Backend::render(int scale) const {
     const QRectF cardRect(pad, pad, card.width(), card.height());
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(0, 0, 0, 70)); // soft drop shadow
-    p.drawRoundedRect(cardRect.translated(0, 8), 12, 12);
+    p.drawRoundedRect(cardRect.translated(0, 8), radius, radius);
     p.setBrush(QColor("#1e1e2e"));
-    p.drawRoundedRect(cardRect, 12, 12);
+    p.drawRoundedRect(cardRect, radius, radius);
 
-    if (m_chrome) {
-        const char *dots[] = {"#ff5f57", "#febc2e", "#28c840"};
-        for (int i = 0; i < 3; ++i) {
-            p.setBrush(QColor(dots[i]));
-            p.drawEllipse(QPointF(pad + 22 + i * 20, pad + 20), 6, 6);
-        }
-    }
+    // Title bars are square at the corners, so clip them to the card shape.
+    QPainterPath clip;
+    clip.addRoundedRect(cardRect, radius, radius);
+    p.save();
+    p.setClipPath(clip);
+    paintFrame(p, cardRect, m_frame, m_title, QColor(m_accent));
+    p.restore();
     p.translate(pad + inner, pad + inner + chrome);
     doc.drawContents(&p);
     return image;
@@ -275,6 +462,7 @@ void Backend::openFile(const QString &path) {
     }
     const QString text = QString::fromUtf8(file.readAll());
     m_language = "Auto";
+    m_title = QFileInfo(path).fileName().isEmpty() ? "codeshot" : QFileInfo(path).fileName();
     setCode(text);
     emit changed();
 }

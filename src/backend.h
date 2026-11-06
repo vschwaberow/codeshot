@@ -12,7 +12,11 @@ class Backend : public QObject {
     Q_PROPERTY(QString code READ code WRITE setCode NOTIFY changed)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY changed)
     Q_PROPERTY(QStringList languages READ languages CONSTANT)
-    Q_PROPERTY(bool windowChrome READ windowChrome WRITE setWindowChrome NOTIFY changed)
+    Q_PROPERTY(QString frame READ frame WRITE setFrame NOTIFY changed)
+    Q_PROPERTY(QStringList frames READ frames CONSTANT)
+    // The Omarchy frame strokes the card in the desktop accent; the window
+    // binds this to the theme so the export follows it live.
+    Q_PROPERTY(QString accent READ accent WRITE setAccent NOTIFY changed)
     Q_PROPERTY(int revision READ revision NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool statusIsError READ statusIsError NOTIFY statusChanged)
@@ -25,8 +29,11 @@ public:
     QString language() const { return m_language; }
     void setLanguage(const QString &language);
     QStringList languages() const;
-    bool windowChrome() const { return m_chrome; }
-    void setWindowChrome(bool on);
+    QString frame() const { return m_frame; }
+    void setFrame(const QString &frame);
+    QStringList frames() const;
+    QString accent() const { return m_accent; }
+    void setAccent(const QString &accent);
     int revision() const { return m_revision; }
     QString status() const { return m_status; }
     bool statusIsError() const { return m_error; }
@@ -51,7 +58,9 @@ private:
 
     QString m_code;
     QString m_language = "Auto";
-    bool m_chrome = true;
+    QString m_frame = "Omarchy";
+    QString m_accent = "#FFD60A";
+    QString m_title = "codeshot";
     int m_revision = 0;
     QString m_status;
     bool m_error = false;

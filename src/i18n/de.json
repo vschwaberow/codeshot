@@ -1,5 +1,4 @@
 {
-  "Window frame": "Fensterrahmen",
   "Copy": "Kopieren",
   "Save PNG": "PNG speichern",
   "Type or paste code": "Code eingeben oder einfügen",
@@ -9,7 +8,7 @@
   "Focus the editor": "Editor fokussieren",
   "Copy image": "Bild kopieren",
   "Next language": "Nächste Sprache",
-  "Toggle window frame": "Fensterrahmen umschalten",
+  "Next window frame": "Nächster Fensterrahmen",
   "Show shortcuts": "Tastenkürzel anzeigen",
   "Quit": "Beenden",
   "Could not save the image": "Das Bild konnte nicht gespeichert werden",
