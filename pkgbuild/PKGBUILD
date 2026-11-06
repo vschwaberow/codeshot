@@ -16,8 +16,10 @@ build() {
 
 package() {
   cd "$startdir/.."
-  install -Dm755 build/codeshot "$pkgdir/usr/bin/codeshot"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 "$startdir/codeshot.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/codeshot.svg"
-  install -Dm644 "$startdir/codeshot.desktop" "$pkgdir/usr/share/applications/codeshot.desktop"
+  # Absolute path: a project bin/ on PATH would otherwise shadow coreutils
+  # install with this repo's own bin/install and recurse into makepkg.
+  /usr/bin/install -Dm755 build/codeshot "$pkgdir/usr/bin/codeshot"
+  /usr/bin/install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  /usr/bin/install -Dm644 "$startdir/codeshot.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/codeshot.svg"
+  /usr/bin/install -Dm644 "$startdir/codeshot.desktop" "$pkgdir/usr/share/applications/codeshot.desktop"
 }
