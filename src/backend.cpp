@@ -21,10 +21,20 @@ struct Lang {
     const char *name;
     const char *keywords;
     const char *comment; // regex for comments
+    bool assembler = false;
 };
 
 const char *kSlash = R"(//[^\n]*|/\*.*?\*/)";
 const char *kHash = R"(#[^\n]*)";
+const char *kSemi = R"(;[^\n]*)";
+const char *kSemiStar = R"(;[^\n]*|(?m:^\*[^\n]*))"; // 68k also comments whole lines with '*'
+
+// Mnemonics, registers, and directives per CPU, matched case-insensitively.
+const char *k68k = "abcd add adda addi addq addx and andi asl asr bcc bchg bclr bcs beq bge bgt bhi ble bls blt bmi bne bpl bra bset bsr btst bvc bvs chk clr cmp cmpa cmpi cmpm dbf dbra dbeq dbne divs divu eor eori exg ext illegal jmp jsr lea link lsl lsr move movea movem movep moveq muls mulu nbcd neg negx nop not or ori pea reset rol ror roxl roxr rte rtr rts sbcd scc seq sne st sf sub suba subi subq subx swap tas trap trapv tst unlk d0 d1 d2 d3 d4 d5 d6 d7 a0 a1 a2 a3 a4 a5 a6 a7 sp sr ccr usp pc section org dc ds equ rs set include incbin even cnop macro endm xdef xref";
+const char *kX86 = "mov push pop lea add sub mul imul div idiv inc dec neg not and or xor shl shr sar sal rol ror cmp test jmp je jne jz jnz jg jge jl jle ja jae jb jbe js jns call ret leave int nop hlt cli sti cld std movzx movsx movs stos lods cmps scas rep repe repne loop xchg cdq cwde cbw sete setne setg setl eax ebx ecx edx esi edi esp ebp ax bx cx dx si di sp bp al ah bl bh cl ch dl dh cs ds es ss fs gs section segment global extern db dw dd dq resb resw resd resq equ times byte word dword qword ptr offset bits org";
+const char *kX64 = "mov push pop lea add sub mul imul div idiv inc dec neg not and or xor shl shr sar sal rol ror cmp test jmp je jne jz jnz jg jge jl jle ja jae jb jbe js jns call ret leave syscall int nop hlt cmov cmove cmovne movzx movsx movsxd movabs movs stos lods rep xchg cqo cdqe sete setne setg setl rax rbx rcx rdx rsi rdi rsp rbp rip r8 r9 r10 r11 r12 r13 r14 r15 r8d r9d r10d r11d r12d r13d r14d r15d eax ebx ecx edx esi edi esp ebp ax bx cx dx al bl cl dl sil dil xmm0 xmm1 xmm2 xmm3 xmm4 xmm5 xmm6 xmm7 section segment global extern default rel db dw dd dq resb resw resd resq equ byte word dword qword ptr";
+const char *k6510 = "adc and asl bcc bcs beq bit bmi bne bpl brk bvc bvs clc cld cli clv cmp cpx cpy dec dex dey eor inc inx iny jmp jsr lda ldx ldy lsr nop ora pha php pla plp rol ror rti rts sbc sec sed sei sta stx sty tax tay tsx txa txs tya lax sax dcp isc slo sre rla rra anc alr arr axs sbx x y a org byte word text fill incbin include macro endm";
+const char *k65816 = "adc and asl bcc bcs beq bit bmi bne bpl bra brk brl bvc bvs clc cld cli clv cmp cop cpx cpy dec dex dey eor inc inx iny jml jmp jsl jsr lda ldx ldy lsr mvn mvp nop ora pea pei per pha phb phd phk php phx phy pla plb pld plp plx ply rep rol ror rti rtl rts sbc sec sed sei sep sta stp stx sty stz tax tay tcd tcs tdc tsc tsx txa txs txy tya tyx wai wdm xba xce a x y s org base byte word long dl dw db fill incbin include macro endm";
 
 const Lang kLangs[] = {
     {"C/C++", "auto break case char class const constexpr continue default delete do double else enum explicit extern false float for goto if inline int long namespace new nullptr operator private protected public return short signed sizeof static struct switch template this throw true try typedef typename union unsigned using virtual void volatile while include define", kSlash},
@@ -34,6 +44,11 @@ const Lang kLangs[] = {
     {"Python", "and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return True try while with yield self", kHash},
     {"Shell", "if then else elif fi for while do done case esac function in return local export echo cd exit set unset source", kHash},
     {"QML", "import property signal function id on as readonly required true false null undefined var let const if else for while return", kSlash},
+    {"Assembler 68k", k68k, kSemiStar, true},
+    {"Assembler x86", kX86, kSemi, true},
+    {"Assembler x64", kX64, kSemi, true},
+    {"Assembler 6510", k6510, kSemi, true},
+    {"Assembler 65816", k65816, kSemi, true},
     {"Plain", "", "(?!)"},
 };
 
@@ -90,10 +105,16 @@ QString Backend::guessLanguage(const QString &code, const QString &path) {
     static const QHash<QString, QString> byExt{
         {"c", "C/C++"}, {"h", "C/C++"}, {"cpp", "C/C++"}, {"hpp", "C/C++"}, {"cc", "C/C++"},
         {"rs", "Rust"}, {"go", "Go"}, {"js", "JavaScript"}, {"ts", "JavaScript"}, {"mjs", "JavaScript"},
+        {"i", "Assembler 68k"}, {"s", "Assembler 68k"}, {"asm", "Assembler 68k"}, {"a65", "Assembler 6510"},
         {"py", "Python"}, {"sh", "Shell"}, {"bash", "Shell"}, {"qml", "QML"}};
     if (byExt.contains(ext))
         return byExt.value(ext);
     auto has = [&](const char *re) { return QRegularExpression(re, QRegularExpression::MultilineOption).match(code).hasMatch(); };
+    if (has(R"(\b(movem?|moveq|dbra|rts|lea)\.?[bwl]?\s+.*\b[da][0-7]\b)")) return "Assembler 68k";
+    if (has(R"(\b(rep|sep)\s+#\$[0-9a-f]{2}|\b(xba|xce|jsl|rtl)\b)")) return "Assembler 65816";
+    if (has(R"(\b(lda|sta|ldx|ldy|jsr|inx|dex)\b)")) return "Assembler 6510";
+    if (has(R"(\br[a-d]x\b|\br(sp|bp|ip)\b|\bsyscall\b)")) return "Assembler x64";
+    if (has(R"(\be[a-d]x\b|\b(esp|ebp)\b)")) return "Assembler x86";
     if (has(R"(^#!.*\b(ba)?sh\b)")) return "Shell";
     if (has(R"(^\s*(def |import \w+$|from \w+ import)|:\s*$)") && !has(R"([;{]\s*$)")) return "Python";
     if (has(R"(\bfn \w+|\blet mut\b|\bimpl\b)")) return "Rust";
@@ -110,11 +131,18 @@ QString Backend::highlight(const QString &code, const QString &language) {
     const Lang *lang = findLang(language == "Auto" ? guessLanguage(code) : language);
     QStringList words = QString::fromLatin1(lang->keywords).split(' ', Qt::SkipEmptyParts);
     const QString keywordPattern = words.isEmpty() ? "(?!)" : "\\b(?:" + words.join('|') + ")\\b";
+    // Assembler adds $hex, %binary, and line-start labels, and ignores case.
+    const QString number = lang->assembler
+        ? "\\$[0-9a-fA-F]+|%[01]+|\\b(?:0x[0-9a-fA-F]+|[0-9][0-9a-fA-F]*h|\\d+)\\b"
+        : "\\b(?:0x[0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b";
+    const QString call = lang->assembler ? "(?m:^[A-Za-z_.][\\w.]*(?=:))" : "\\b[A-Za-z_]\\w*(?=\\()";
+    QRegularExpression::PatternOptions options = QRegularExpression::DotMatchesEverythingOption;
+    if (lang->assembler)
+        options |= QRegularExpression::CaseInsensitiveOption;
     const QRegularExpression re(
         QString("(?<comment>%1)|(?<string>\"(?:\\\\.|[^\"\\\\\\n])*\"|'(?:\\\\.|[^'\\\\\\n])*'|`[^`]*`)"
-                "|(?<number>\\b(?:0x[0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b)|(?<keyword>%2)"
-                "|(?<call>\\b[A-Za-z_]\\w*(?=\\())").arg(lang->comment, keywordPattern),
-        QRegularExpression::DotMatchesEverythingOption);
+                "|(?<number>%3)|(?<keyword>%2)|(?<call>%4)").arg(lang->comment, keywordPattern, number, call),
+        options);
 
     static const QHash<QString, QString> colors{{"comment", "#6c7086"}, {"string", "#a6e3a1"}, {"number", "#fab387"},
                                                 {"keyword", "#cba6f7"}, {"call", "#89b4fa"}};

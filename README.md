@@ -1,6 +1,6 @@
 # codeshot
 
-Turns code into a shareable PNG with syntax highlighting. Paste or open a file, then save the image or copy it to the clipboard.
+Turns code (incl. 68k, x86, x64, 6510, 65816 assembler) into a shareable PNG with syntax highlighting. Paste or open a file, then save the image or copy it to the clipboard.
 
     codeshot [file]
 

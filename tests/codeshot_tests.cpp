@@ -26,6 +26,19 @@ private slots:
         QVERIFY(html.contains("#a6e3a1"));
     }
 
+    void highlightsAssembler()
+    {
+        QCOMPARE(Backend::guessLanguage("move.l d0,a1"), QString("Assembler 68k"));
+        QCOMPARE(Backend::guessLanguage("lda #$01\nsta $d020"), QString("Assembler 6510"));
+        QCOMPARE(Backend::guessLanguage("rep #$30\nxba"), QString("Assembler 65816"));
+        QCOMPARE(Backend::guessLanguage("mov rax, rbx"), QString("Assembler x64"));
+        QCOMPARE(Backend::guessLanguage("mov eax, ebx"), QString("Assembler x86"));
+        const QString html = Backend::highlight("loop: LDA #$01 ; hi", "Assembler 6510");
+        QVERIFY(html.contains("#cba6f7\">LDA"));
+        QVERIFY(html.contains("#fab387\">#$01") || html.contains("#fab387\">$01"));
+        QVERIFY(html.contains("#6c7086\">; hi"));
+    }
+
     void escapesHtml()
     {
         QVERIFY(Backend::highlight("a < b && c", "Plain").contains("&lt;"));
