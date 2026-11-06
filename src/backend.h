@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QImage>
+#include <QMutex>
 #include <QObject>
 #include <QPointer>
 #include <QQuickImageProvider>
@@ -24,7 +25,7 @@ class Backend : public QObject {
     Q_PROPERTY(bool statusIsError READ statusIsError NOTIFY statusChanged)
 
 public:
-    explicit Backend(QObject *parent = nullptr) : QObject(parent) {}
+    explicit Backend(QObject *parent = nullptr);
 
     QString code() const { return m_code; }
     void setCode(const QString &code);
@@ -44,7 +45,10 @@ public:
     Q_INVOKABLE void saveImage();
     Q_INVOKABLE void copyImage();
 
+    // Renders on the calling (GUI) thread; the image provider reads the
+    // cached result instead, because its requests run on another thread.
     QImage render(int scale = 2) const;
+    QImage previewImage() const;
     static QString highlight(const QString &code, const QString &language);
     static QString guessLanguage(const QString &code, const QString &path = {});
     // Where saved images go; tests pass a temp directory.
@@ -58,15 +62,19 @@ signals:
 private:
     void setStatus(const QString &text, bool error = false);
 
+    void refreshPreview();
+
     // Every property that reaches the render follows the same rule: ignore
     // no-ops, otherwise store, bump the revision so the preview reloads,
-    // and notify. (A plain member template, not a slot, so moc is fine.)
+    // re-render the cached preview, and notify. (A plain member template,
+    // not a slot, so moc is fine.)
     template <typename T>
     void setField(T &field, T value) {
         if (field == value)
             return;
         field = std::move(value);
         ++m_revision;
+        refreshPreview();
         emit changed();
     }
 
@@ -76,6 +84,8 @@ private:
     QString m_accent = "#FFD60A";
     QString m_title = "codeshot";
     int m_revision = 0;
+    QImage m_cachedPreview;
+    mutable QMutex m_cacheMutex;
     QString m_status;
     bool m_error = false;
 };

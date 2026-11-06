@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QFontMetrics>
 #include <QLinearGradient>
+#include <QMutexLocker>
 #include <QPainter>
 #include <QPainterPath>
 #include <QProcess>
@@ -274,6 +275,24 @@ void paintAmiga3(QPainter &p, const QRectF &card, const QRectF &band, const QStr
 
 } // namespace
 
+Backend::Backend(QObject *parent) : QObject(parent) {
+    refreshPreview();
+}
+
+// All painting happens here, on the GUI thread. The provider thread only
+// copies the finished image out under the mutex, so QTextDocument layout
+// and the backend strings are never touched from two threads at once.
+void Backend::refreshPreview() {
+    QImage image = render(2);
+    const QMutexLocker lock(&m_cacheMutex);
+    m_cachedPreview = std::move(image);
+}
+
+QImage Backend::previewImage() const {
+    const QMutexLocker lock(&m_cacheMutex);
+    return m_cachedPreview;
+}
+
 QStringList Backend::languages() const {
     QStringList list{"Auto"};
     std::transform(kLangs.begin(), kLangs.end(), std::back_inserter(list),
@@ -422,7 +441,7 @@ QImage Backend::render(int scale) const {
 QImage PreviewProvider::requestImage(const QString &, QSize *size, const QSize &) {
     if (!m_backend)
         return {};
-    const QImage image = m_backend->render(2);
+    const QImage image = m_backend->previewImage();
     if (size)
         *size = image.size();
     return image;
