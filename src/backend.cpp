@@ -174,19 +174,24 @@ void paintAtari(QPainter &p, const QRectF &card, const QRectF &band, const QStri
     const QRectF closeBox(card.x() + 7, card.y() + 6, 12, 12);
     const QRectF fullBox(card.right() - 19, card.y() + 6, 12, 12);
     p.setFont(titleFont(12));
-    const int titleW = QFontMetrics(p.font()).horizontalAdvance(title);
+    // Elide first, so the stripe spans below can never run past the boxes
+    // when the file name is longer than the bar.
+    const QString elided = QFontMetrics(p.font()).elidedText(title, Qt::ElideRight, int(fullBox.left() - closeBox.right() - 24));
+    const int titleW = QFontMetrics(p.font()).horizontalAdvance(elided);
     const double titleLeft = card.center().x() - titleW / 2.0, titleRight = titleLeft + titleW;
     p.setPen(QPen(Qt::black, 1));
     for (double y = card.y() + 4; y < band.bottom() - 3; y += 2) {
-        p.drawLine(QPointF(closeBox.right() + 6, y), QPointF(titleLeft - 8, y));
-        p.drawLine(QPointF(titleRight + 8, y), QPointF(fullBox.left() - 6, y));
+        if (titleLeft - 8 > closeBox.right() + 6)
+            p.drawLine(QPointF(closeBox.right() + 6, y), QPointF(titleLeft - 8, y));
+        if (fullBox.left() - 6 > titleRight + 8)
+            p.drawLine(QPointF(titleRight + 8, y), QPointF(fullBox.left() - 6, y));
     }
     p.setBrush(QColor("#ffffff"));
     p.drawRect(closeBox);
     p.drawRect(fullBox);
     p.drawRect(QRectF(fullBox.x() + 2, fullBox.y() + 2, 5, 5));
     p.drawLine(QPointF(card.x(), band.bottom()), QPointF(card.right(), band.bottom()));
-    drawTitle(p, band, title, Qt::black, Qt::AlignCenter, 12);
+    drawTitle(p, band, elided, Qt::black, Qt::AlignCenter, 12);
 }
 
 void paintAmiga13(QPainter &p, const QRectF &card, const QRectF &band, const QString &title, const QColor &) {
@@ -465,7 +470,12 @@ QString Backend::saveDirectory() {
 // Writes beside the target and renames, so a failed save never leaves half a file.
 QString Backend::saveTo(const QString &directory) const {
     QDir().mkpath(directory);
-    const QString path = QDir(directory).filePath("codeshot-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".png");
+    // Milliseconds plus a counter, so two saves in the same second can
+    // never silently overwrite each other.
+    const QString stamp = QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss-zzz");
+    QString path = QDir(directory).filePath("codeshot-" + stamp + ".png");
+    for (int n = 2; QFileInfo::exists(path); ++n)
+        path = QDir(directory).filePath(QString("codeshot-%1-%2.png").arg(stamp).arg(n));
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || !render(2).save(&file, "PNG") || !file.commit())
         return {};

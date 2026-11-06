@@ -87,6 +87,55 @@ private slots:
         QVERIFY(image.height() <= 8192);
     }
 
+    void savesTwiceKeepsBoth()
+    {
+        Backend backend;
+        backend.setCode("int main() { return 0; }");
+        QTemporaryDir dir;
+        const QString first = backend.saveTo(dir.path());
+        const QString second = backend.saveTo(dir.path());
+        QVERIFY(!first.isEmpty() && !second.isEmpty());
+        QVERIFY(first != second);
+        QVERIFY(QFile::exists(first) && QFile::exists(second));
+    }
+
+    void atariStripesStayOffTheGadgets()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QString(180, 'a') + ".py");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("x = 1\n");
+        file.close();
+        Backend backend;
+        backend.openFile(path);
+        backend.setFrame("Atari TOS");
+        const QImage image = backend.render(1);
+        QVERIFY(!image.isNull());
+        // Left of the close box (card starts at 40,40; box at x 47..59) the
+        // white bar must stay white on a stripe row (y = 44, 46, 48, ...).
+        QVERIFY(qGray(image.pixel(43, 48)) > 200);
+    }
+
+    void readsAccentForms()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("colors.toml");
+        auto read = [&](const QString &content) {
+            QFile f(path);
+            if (!f.open(QIODevice::WriteOnly))
+                return QString();
+            f.write(content.toUtf8());
+            f.close();
+            return Theme::readAccent(path);
+        };
+        QCOMPARE(read("accent = \"#ff007f\"\n"), QString("#ff007f"));
+        QCOMPARE(read("accent = '#00f0ff'\n"), QString("#00f0ff"));
+        QCOMPARE(read("accent = #05ffa1\n"), QString("#05ffa1"));
+        QCOMPARE(read("accent = \"#ff007fcc\"\n"), QString("#ff007f"));
+        QCOMPARE(read("nothing here\n"), QString("#FFD60A"));
+    }
+
     void copyReportsWlCopyFailure()
     {
         QTemporaryDir dir;

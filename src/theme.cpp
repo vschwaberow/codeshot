@@ -64,7 +64,9 @@ void Theme::refreshRounding() {
 QString Theme::readAccent(const QString &path) {
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
-        const QRegularExpression expression(R"re(^\s*accent\s*=\s*["'](#[0-9a-fA-F]{6})["'])re",
+        // Quoted or bare, with or without an alpha channel; the color used
+        // downstream is the RRGGBB part.
+        const QRegularExpression expression(R"re(^\s*accent\s*=\s*["']?(#[0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?["']?)re",
                                             QRegularExpression::MultilineOption);
         const auto match = expression.match(QString::fromUtf8(file.readAll()));
         if (match.hasMatch())
