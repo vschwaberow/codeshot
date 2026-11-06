@@ -2,8 +2,10 @@
 
 #include <QImage>
 #include <QObject>
+#include <QPointer>
 #include <QQuickImageProvider>
 #include <QStringList>
+#include <utility>
 
 // Renders code to an image. The same function paints the preview and the
 // exported file, so what the user sees is what gets saved.
@@ -56,6 +58,18 @@ signals:
 private:
     void setStatus(const QString &text, bool error = false);
 
+    // Every property that reaches the render follows the same rule: ignore
+    // no-ops, otherwise store, bump the revision so the preview reloads,
+    // and notify. (A plain member template, not a slot, so moc is fine.)
+    template <typename T>
+    void setField(T &field, T value) {
+        if (field == value)
+            return;
+        field = std::move(value);
+        ++m_revision;
+        emit changed();
+    }
+
     QString m_code;
     QString m_language = "Auto";
     QString m_frame = "Omarchy";
@@ -72,5 +86,6 @@ public:
     QImage requestImage(const QString &, QSize *size, const QSize &) override;
 
 private:
-    Backend *m_backend;
+    // Non-owning and guarded: goes null if the backend ever dies first.
+    QPointer<Backend> m_backend;
 };

@@ -77,6 +77,29 @@ private slots:
         QVERIFY(macHeight > noneHeight);
     }
 
+    void settersSkipNoOps()
+    {
+        Backend backend;
+        const int revision = backend.revision();
+        backend.setFrame(backend.frame());
+        backend.setLanguage(backend.language());
+        QCOMPARE(backend.revision(), revision);
+        backend.setFrame("Windows");
+        QCOMPARE(backend.revision(), revision + 1);
+        backend.setCode("x");
+        QCOMPARE(backend.revision(), revision + 2);
+    }
+
+    void unknownFrameFallsBackToOmarchy()
+    {
+        Backend backend;
+        backend.setCode("int main() { return 0; }");
+        backend.setFrame("Omarchy");
+        const QSize omarchy = backend.render(2).size();
+        backend.setFrame("Bogus");
+        QCOMPARE(backend.render(2).size(), omarchy);
+    }
+
     void themeFallsBack()
     {
         QTemporaryDir dir;

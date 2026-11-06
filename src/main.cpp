@@ -6,6 +6,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QUrl>
+#include <memory>
 
 #include "backend.h"
 #include "theme.h"
@@ -32,7 +33,9 @@ int main(int argc, char *argv[]) {
         backend.openFile(QString::fromLocal8Bit(argv[1]));
 
     QQmlApplicationEngine engine;
-    engine.addImageProvider("preview", new PreviewProvider(&backend));
+    // The engine takes ownership of the provider; release() makes the
+    // transfer explicit instead of a bare new.
+    engine.addImageProvider("preview", std::make_unique<PreviewProvider>(&backend).release());
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
